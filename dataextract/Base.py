@@ -14,6 +14,7 @@
 from ctypes import *
 from . import Exceptions
 from . import Libs
+from . import StringUtils
 from . import Types
 
 libs = Libs.LoadLibs()
@@ -24,8 +25,16 @@ class TableDefinition(object):
 
     def __init__(
         self
+      , _handle = None
+      , _parent = None
     ):
         """Creates an empty copy of a TableDefinition object, which represent a collection of columns."""
+
+        if _handle != None:
+            self._handle = _handle
+            self._parent = _parent
+            return
+
         self._handle = c_void_p(None)
 
         ret = tablib.TabTableDefinitionCreate(
@@ -86,7 +95,7 @@ class TableDefinition(object):
 
         result = tablib.TabTableDefinitionAddColumn(
             self._handle
-          , c_wchar_p(name)
+          , StringUtils.ToTableauString(name)
           , c_int(type)
         )
 
@@ -106,7 +115,7 @@ class TableDefinition(object):
 
         result = tablib.TabTableDefinitionAddColumnWithCollation(
             self._handle
-          , c_wchar_p(name)
+          , StringUtils.ToTableauString(name)
           , c_int(type)
           , c_int(collation)
         )
@@ -136,7 +145,7 @@ class TableDefinition(object):
     ):
         """Gives the name of the column."""
 
-        retval = c_wchar_p()
+        retval = c_void_p(None)
         result = tablib.TabTableDefinitionGetColumnName(
             self._handle
           , c_int(columnNumber)
@@ -146,7 +155,7 @@ class TableDefinition(object):
         if result != Types.Result.SUCCESS:
             raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
 
-        return retval.value
+        return StringUtils.FromTableauString(retval)
 
     def getColumnType(
         self
@@ -166,6 +175,24 @@ class TableDefinition(object):
 
         return retval.value
 
+    def getColumnCollation(
+        self
+      , columnNumber
+    ):
+        """Gives the collation of the column."""
+
+        retval = c_int()
+        result = tablib.TabTableDefinitionGetColumnCollation(
+            self._handle
+          , c_int(columnNumber)
+          , byref(retval)
+        )
+
+        if result != Types.Result.SUCCESS:
+            raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
+
+        return retval.value
+
 class Row(object):
     """A tuple of values to be inserted into an extract."""
 
@@ -174,6 +201,7 @@ class Row(object):
       , tableDefinition
     ):
         """Create an empty row with the specified schema."""
+
         self._handle = c_void_p(None)
 
         ret = tablib.TabRowCreate(
@@ -268,7 +296,7 @@ class Row(object):
         result = tablib.TabRowSetString(
             self._handle
           , c_int(columnNumber)
-          , c_wchar_p(value)
+          , StringUtils.ToTableauString(value)
         )
 
         if result != Types.Result.SUCCESS:
@@ -382,6 +410,22 @@ class Table(object):
         if result != Types.Result.SUCCESS:
             raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
 
+    def getTableDefinition(
+        self
+    ):
+        """Get this table's schema."""
+
+        retval = c_void_p(None)
+        result = tablib.TabTableGetTableDefinition(
+            self._handle
+          , byref(retval)
+        )
+
+        if result != Types.Result.SUCCESS:
+            raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
+
+        return TableDefinition( _handle = retval, _parent = self)
+
     def __init__(self, _handle, _parent):
         """Internal use only: Create a new instance to wrap the specified handle."""
         self._handle = _handle
@@ -395,6 +439,7 @@ class Extract(object):
       , path
     ):
         """Create an extract object with an absolute or relative file system path. This object must be closed."""
+
         self._handle = c_void_p(None)
 
         if path == None:
@@ -402,7 +447,7 @@ class Extract(object):
 
         ret = tablib.TabExtractCreate(
             byref(self._handle)
-          , unicode(path)
+          , StringUtils.ToTableauString(path)
         )
 
         if int(ret) != int(Types.Result.SUCCESS):
@@ -430,7 +475,7 @@ class Extract(object):
         retval = c_void_p(None)
         result = tablib.TabExtractAddTable(
             self._handle
-          , c_wchar_p(name)
+          , StringUtils.ToTableauString(name)
           , tableDefinition._handle
           , byref(retval)
         )
@@ -438,7 +483,49 @@ class Extract(object):
         if result != Types.Result.SUCCESS:
             raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
 
-        return Table(retval, self)
+        return Table( _handle = retval, _parent = self)
+
+    def openTable(
+        self
+      , name
+    ):
+        """Opens an existing table in the extract."""
+
+        if name == None:
+            raise ValueError('name must not be None')
+
+        retval = c_void_p(None)
+        result = tablib.TabExtractOpenTable(
+            self._handle
+          , StringUtils.ToTableauString(name)
+          , byref(retval)
+        )
+
+        if result != Types.Result.SUCCESS:
+            raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
+
+        return Table( _handle = retval, _parent = self)
+
+    def hasTable(
+        self
+      , name
+    ):
+        """Tests if a table exists in the extract."""
+
+        if name == None:
+            raise ValueError('name must not be None')
+
+        retval = c_bool()
+        result = tablib.TabExtractHasTable(
+            self._handle
+          , StringUtils.ToTableauString(name)
+          , byref(retval)
+        )
+
+        if result != Types.Result.SUCCESS:
+            raise Exceptions.TableauException(result, wstring_at(tablib.TabGetLastErrorMessage()))
+
+        return retval.value
 
     def __enter__(self):
         return self

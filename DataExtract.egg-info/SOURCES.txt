@@ -1,0 +1,11 @@
+README.txt
+DataExtract.egg-info/PKG-INFO
+DataExtract.egg-info/SOURCES.txt
+DataExtract.egg-info/dependency_links.txt
+DataExtract.egg-info/top_level.txt
+dataextract/Base.py
+dataextract/Exceptions.py
+dataextract/Libs.py
+dataextract/StringUtils.py
+dataextract/Types.py
+dataextract/__init__.py

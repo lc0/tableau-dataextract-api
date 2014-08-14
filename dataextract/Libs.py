@@ -13,15 +13,17 @@
 
 import ctypes
 import os
-os.environ['PATH'] = os.path.join(os.path.dirname(__file__), 'bin') + ';' + os.environ['PATH']
+import sys
+os.environ['PATH'] = os.path.join(os.path.dirname(__file__), 'bin') + os.pathsep + os.environ['PATH']
 
-TDELIB = None
-LIB_NAME = 'DataExtract'
-LIB_PATH = 'DataExtract'
+if sys.platform == 'win32':
+   LIB_PATH = 'DataExtract'
+elif sys.platform.startswith('linux') or sys.platform.startswith('darwin') :
+   LIB_PATH = os.path.join(os.path.dirname(__file__), 'lib', 'libDataExtract.so')
+else:
+   raise RuntimeError('Unknown platform ' + sys.platform)
 
 class LoadLibs(object):
-    lib_name = LIB_NAME
-
     def __init__(self, lib_path = LIB_PATH):
         self.lib = None
         self._is_lib_loaded = False
